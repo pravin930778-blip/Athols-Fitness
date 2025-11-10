@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Athlos - At Home Fitness</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        :root {
+            --bg-dark-1: #0c0b1f;
+            --bg-dark-2: #161625;
+            --bg-card-1: #1d222e;
+            --bg-card-2: #2c2c3e;
+            --text-light: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.5);
+            --accent-red: #f23a53;
+            --accent-orange: #e85d04;
+            --accent-blue: #007bff;
+            --accent-green: #25d366;
+            --accent-yellow: #ffb703;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #000;
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-shell {
+            width: 100%;
+            height: 100%;
+            max-width: 450px;
+            max-height: 850px;
+            background-color: var(--bg-dark-1);
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        main {
+            flex-grow: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            padding-bottom: 80px; /* Space for nav bar */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            overflow-y: auto;
+            background-color: var(--bg-dark-1);
+        }
+
+        .page.active {
+            opacity: 1;
+            visibility: visible;
+            z-index: 1;
+        }
+        
+        h1, h2, h3 {
+            font-weight: 600;
+        }
+
+        /* Splash Screen */
+        #splash-screen {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url('assets/exercise.jpg') no-repeat center center/cover;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        #splash-screen h1 {
+            font-size: 3.5rem;
+            line-height: 1.1;
+            color: var(--text-light);
+        }
+        #splash-screen h1 span {
+            color: var(--accent-yellow);
+        }
+        .splash-badge {
+            background-color: var(--accent-red);
+            padding: 5px 15px;
+            font-weight: 700;
+            transform: rotate(-5deg);
+            margin: 20px 0;
+            display: inline-block;
+        }
+        .splash-footer {
+            position: absolute;
+            bottom: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background-color: var(--bg-dark-2);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid var(--bg-card-1);
+            z-index: 10;
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.7rem;
+            transition: color 0.2s ease;
+        }
+        .nav-btn.active, .nav-btn:hover {
+            color: var(--accent-red);
+        }
+        .nav-btn svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+            fill: currentColor;
+        }
+        #logout-btn {
+            color: var(--accent-orange);
+        }
+
+        /* General Page Styles */
+        .page-title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.3);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 50px;
+            cursor: pointer;
+            z-index: 5;
+        }
+        .header-with-back {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-with-back .page-title {
+            margin-bottom: 0;
+            margin-left: 10px;
+        }
+
+
+        /* Home Screen */
+        .focus-areas-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .focus-card {
+            background-color: var(--bg-card-1);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        .focus-card:hover {
+            transform: translateY(-5px);
+        }
+        .focus-card img {
+            width: 100%;
+            max-width: 100px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        .focus-card p {
+            font-weight: 600;
+        }
+        
+        /* Levels Screen */
+        .levels-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .level-card {
+            background-color: var(--bg-card-1);
+            border-radius: 20px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            min-height: 150px;
+        }
+        .level-card.beginner { background: linear-gradient(45deg, #007bff, #00d4ff); }
+        .level-card.intermediate { background: linear-gradient(45deg, #e85d04, #ffb703); }
+        .level-card.advanced { background: linear-gradient(45deg, #f23a53, #ff4d6d); }
+        
+        .level-card-content {
+            position: relative;
+            z-index: 2;
+        }
+        .level-card-content h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        .level-card-character {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 120px;
+            height: auto;
+            z-index: 1;
+        }
+        .progress-bar {
+            width: 100%;
+            display: flex;
+            gap: 4px;
+            height: 6px;
+            margin-top: 15px;
+        }
+        .progress-segment {
+            flex-grow: 1;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        /* Workout List Page */
+        .workout-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .workout-item {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-card-1);
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .workout-item img {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            margin-right: 15px;
+        }
+        .workout-item-info h4 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .workout-item-info p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Plan Screen */
+        .week-section {
+            margin-bottom: 30px;
+        }
+        .week-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--accent-red);
+        }
+        .day-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+        .day-card {
+            aspect-ratio: 1/1.2;
+            background-color: var(--bg-card-1);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.7rem;
+            border: 2px solid transparent;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .day-card.rest {
+            background-color: var(--bg-card-2);
+            cursor: default;
+        }
+        .day-card.completed {
+            background-color: var(--accent-green);
+            border-color: var(--text-light);
+        }
+        .day-number {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+        .day-focus {
+            color: var(--text-muted);
+        }
+        .day-card.completed .day-focus {
+            color: rgba(0,0,0,0.7);
+        }
+
+
+        /* Tracker Screen */
+        .report-card {
+            background-color: var(--bg-card-1);
+            border-radius: 15px;
+            padding: 20px;
+        }
+        .report-card h3 {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+        .weight-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .weight-stat {
+            text-align: center;
+        }
+        .weight-stat p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .weight-stat .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .weight-loss-bubble {
+            background-color: var(--accent-red);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            position: relative;
+        }
+        .weight-loss-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 20px;
+            height: 20px;
+            background-color: var(--accent-red);
+        }
+        .weight-loss-bubble .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .weight-loss-bubble p {
+            font-size: 0.9rem;
+        }
+        
+        /* Exercise Player */
+        #exercise-player-screen {
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0;
+            padding-bottom: 20px;
+        }
+        .video-container {
+            width: 100%;
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #exercise-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .player-header {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            padding: 0 20px;
+            z-index: 5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #exercise-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: right;
+        }
+        .player-controls {
+            padding: 0 20px;
+            text-align: center;
+        }
+        #timer-display {
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        #done-btn {
+            background-color: var(--accent-red);
+            color: white;
+            border: none;
+            padding: 15px 0;
+            width: 100%;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Auth Modal */
+        #auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .auth-container {
+            background-color: var(--bg-card-1);
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 350px;
+        }
+        .auth-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .auth-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background-color: var(--bg-card-2);
+            border: 1px solid var(--bg-dark-2);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-family: 'Poppins', sans-serif;
+        }
+        .auth-form button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent-red);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-light);
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #auth-error {
+            color: var(--accent-red);
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 10px;
+            min-height: 1.2em;
+        }
+        #toggle-auth-mode {
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            color: var(--text-muted);
+        }
+        #toggle-auth-mode span {
+            color: var(--accent-blue);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "firebase/": "https://aistudiocdn.com/firebase@^12.5.0/"
+  }
+}
+</script>
+</head>
+<body>
+    <div class="app-shell">
+        <main>
+            <!-- Splash Screen -->
+            <section id="splash-screen" class="page active">
+                <h1>Muscle Up<br><span>Fat Down</span></h1>
+                <div class="splash-badge">AT HOME!</div>
+                <div class="splash-footer">developed by javagoat</div>
+            </section>
+
+            <!-- Home Screen -->
+            <section id="focus-areas-screen" class="page">
+                <h2 class="page-title">Hit Your Focus Areas</h2>
+                <div class="focus-areas-grid">
+                    <div class="focus-card exercise-trigger" data-name="Full Body" data-video="video/jumping_jacks.mp4" data-duration="30s">
+                        <img src="assets/full_body.png" alt="Full Body">
+                        <p>Full Body</p>
+                    </div>
+                    <div class="focus-card exercise-trigger" data-name="Abs" data-video="video/side_abdomen.mp4" data-duration="30s">
+                        <img src="assets/abs.png" alt="Abs">
+                        <p>Abs</p>
+                    </div>
+                    <div class="focus-card exercise-trigger" data-name="Chest" data-video="video/pushup.mp4" data-duration="30s">
+                        <img src="assets/chest.png" alt="Chest">
+                        <p>Chest</p>
+                    </div>
+                    <div class="focus-card exercise-trigger" data-name="Arms" data-video="video/biceps.mp4" data-duration="30s">
+                        <img src="assets/arms.png" alt="Arms">
+                        <p>Arms</p>
+                    </div>
+                    <div class="focus-card exercise-trigger" data-name="Legs" data-video="video/squat.mp4" data-duration="30s">
+                        <img src="assets/leg.png" alt="Legs">
+                        <p>Legs</p>
+                    </div>
+                    <div class="focus-card exercise-trigger" data-name="Back" data-video="video/pullup.mp4" data-duration="30s">
+                        <img src="assets/back.png" alt="Back">
+                        <p>Back</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Plan Screen -->
+            <section id="plan-screen" class="page" data-requires-auth="true">
+                <h2 class="page-title">28-Day Fitness Plan</h2>
+                <div id="plan-container">
+                    <!-- Week 1 -->
+                    <div class="week-section">
+                        <h3 class="week-title">Week 1</h3>
+                        <div class="day-grid">
+                            <div class="day-card exercise-trigger" data-day="1" data-name="Chest Press" data-reps="12" data-video="video/pushup.mp4"><div class="day-number">01</div><div class="day-focus">Chest</div></div>
+                            <div class="day-card exercise-trigger" data-day="2" data-name="Crunches" data-reps="20" data-video="video/side_abdomen.mp4"><div class="day-number">02</div><div class="day-focus">Abs</div></div>
+                            <div class="day-card exercise-trigger" data-day="3" data-name="Squats" data-reps="15" data-video="video/squat.mp4"><div class="day-number">03</div><div class="day-focus">Legs</div></div>
+                            <div class="day-card exercise-trigger" data-day="4" data-name="Bicep Curls" data-reps="12" data-video="video/biceps.mp4"><div class="day-number">04</div><div class="day-focus">Arms</div></div>
+                            <div class="day-card exercise-trigger" data-day="5" data-name="Jumping Jacks" data-duration="45s" data-video="video/jumping_jacks.mp4"><div class="day-number">05</div><div class="day-focus">Full Body</div></div>
+                            <div class="day-card exercise-trigger" data-day="6" data-name="Pull Ups" data-reps="8" data-video="video/pullup.mp4"><div class="day-number">06</div><div class="day-focus">Back</div></div>
+                            <div class="day-card rest"><div class="day-number">07</div><div class="day-focus">Rest</div></div>
+                        </div>
+                    </div>
+                    <!-- Week 2 -->
+                    <div class="week-section">
+                        <h3 class="week-title">Week 2</h3>
+                        <div class="day-grid">
+                            <div class="day-card exercise-trigger" data-day="8" data-name="Incline Pushups" data-reps="15" data-video="video/pushup.mp4"><div class="day-number">08</div><div class="day-focus">Chest</div></div>
+                            <div class="day-card exercise-trigger" data-day="9" data-name="Leg Raises" data-reps="20" data-video="video/side_abdomen.mp4"><div class="day-number">09</div><div class="day-focus">Abs</div></div>
+                            <div class="day-card exercise-trigger" data-day="10" data-name="Lunges" data-reps="15" data-video="video/squat.mp4"><div class="day-number">10</div><div class="day-focus">Legs</div></div>
+                            <div class="day-card exercise-trigger" data-day="11" data-name="Tricep Dips" data-reps="12" data-video="video/tricep.mp4"><div class="day-number">11</div><div class="day-focus">Arms</div></div>
+                            <div class="day-card exercise-trigger" data-day="12" data-name="Burpees" data-reps="10" data-video="video/jumping_jacks.mp4"><div class="day-number">12</div><div class="day-focus">Full Body</div></div>
+                            <div class="day-card exercise-trigger" data-day="13" data-name="Supermans" data-reps="15" data-video="video/pullup.mp4"><div class="day-number">13</div><div class="day-focus">Back</div></div>
+                            <div class="day-card rest"><div class="day-number">14</div><div class="day-focus">Rest</div></div>
+                        </div>
+                    </div>
+                    <!-- Week 3 -->
+                    <div class="week-section">
+                        <h3 class="week-title">Week 3</h3>
+                        <div class="day-grid">
+                            <div class="day-card exercise-trigger" data-day="15" data-name="Wide Pushups" data-reps="15" data-video="video/pushup.mp4"><div class="day-number">15</div><div class="day-focus">Chest</div></div>
+                            <div class="day-card exercise-trigger" data-day="16" data-name="Plank" data-duration="60s" data-video="video/side_abdomen.mp4"><div class="day-number">16</div><div class="day-focus">Abs</div></div>
+                            <div class="day-card exercise-trigger" data-day="17" data-name="Glute Bridges" data-reps="20" data-video="video/squat.mp4"><div class="day-number">17</div><div class="day-focus">Legs</div></div>
+                            <div class="day-card exercise-trigger" data-day="18" data-name="Hammer Curls" data-reps="12" data-video="video/biceps.mp4"><div class="day-number">18</div><div class="day-focus">Arms</div></div>
+                            <div class="day-card exercise-trigger" data-day="19" data-name="High Knees" data-duration="45s" data-video="video/jumping_jacks.mp4"><div class="day-number">19</div><div class="day-focus">Full Body</div></div>
+                            <div class="day-card exercise-trigger" data-day="20" data-name="Rows" data-reps="12" data-video="video/pullup.mp4"><div class="day-number">20</div><div class="day-focus">Back</div></div>
+                            <div class="day-card rest"><div class="day-number">21</div><div class="day-focus">Rest</div></div>
+                        </div>
+                    </div>
+                    <!-- Week 4 -->
+                    <div class="week-section">
+                        <h3 class="week-title">Week 4</h3>
+                        <div class="day-grid">
+                            <div class="day-card exercise-trigger" data-day="22" data-name="Decline Pushups" data-reps="12" data-video="video/pushup.mp4"><div class="day-number">22</div><div class="day-focus">Chest</div></div>
+                            <div class="day-card exercise-trigger" data-day="23" data-name="Bicycle Crunches" data-reps="25" data-video="video/side_abdomen.mp4"><div class="day-number">23</div><div class="day-focus">Abs</div></div>
+                            <div class="day-card exercise-trigger" data-day="24" data-name="Calf Raises" data-reps="25" data-video="video/squat.mp4"><div class="day-number">24</div><div class="day-focus">Legs</div></div>
+                            <div class="day-card exercise-trigger" data-day="25" data-name="Overhead Press" data-reps="12" data-video="video/tricep.mp4"><div class="day-number">25</div><div class="day-focus">Arms</div></div>
+                            <div class="day-card exercise-trigger" data-day="26" data-name="Mountain Climbers" data-duration="60s" data-video="video/jumping_jacks.mp4"><div class="day-number">26</div><div class="day-focus">Full Body</div></div>
+                            <div class="day-card exercise-trigger" data-day="27" data-name="Deadlifts" data-reps="10" data-video="video/pullup.mp4"><div class="day-number">27</div><div class="day-focus">Back</div></div>
+                            <div class="day-card rest"><div class="day-number">28</div><div class="day-focus">Rest</div></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tracker Screen -->
+            <section id="tracker-screen" class="page" data-requires-auth="true">
+                <h2 class="page-title">Report</h2>
+                <div class="report-card">
+                    <h3>WEIGHT (lb)</h3>
+                    <div class="weight-stats">
+                        <div class="weight-stat">
+                            <p>Starting</p>
+                            <div id="starting-weight" class="value">...</div>
+                        </div>
+                        <div class="weight-stat">
+                            <p>Current</p>
+                            <div id="current-weight" class="value">...</div>
+                        </div>
+                    </div>
+                    <div class="weight-loss-bubble">
+                        <div id="weight-loss" class="value">...</div>
+                        <p>Total Loss</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Levels Screen -->
+            <section id="levels-screen" class="page">
+                <h2 class="page-title">Easy Start</h2>
+                <div class="levels-container">
+                    <div class="level-card beginner" data-target-page="beginner-workout-page">
+                        <div class="level-card-content">
+                            <h3>Beginner</h3>
+                            <div class="progress-bar">
+                                <div class="progress-segment"></div><div class="progress-segment"></div><div class="progress-segment"></div><div class="progress-segment"></div>
+                            </div>
+                        </div>
+                        <img src="assets/beginner.png" alt="Beginner" class="level-card-character">
+                    </div>
+                    <div class="level-card intermediate" data-target-page="intermediate-workout-page">
+                        <div class="level-card-content">
+                            <h3>Intermediate</h3>
+                             <div class="progress-bar">
+                                <div class="progress-segment"></div><div class="progress-segment"></div><div class="progress-segment"></div><div class="progress-segment"></div>
+                            </div>
+                        </div>
+                        <img src="assets/intermediate.png" alt="Intermediate" class="level-card-character">
+                    </div>
+                    <div class="level-card advanced" data-target-page="advanced-workout-page">
+                        <div class="level-card-content">
+                            <h3>Advanced</h3>
+                             <div class="progress-bar">
+                                <div class="progress-segment"></div><div class="progress-segment"></div><div class="progress-segment"></div><div class="progress-segment"></div>
+                            </div>
+                        </div>
+                        <img src="assets/advanced.png" alt="Advanced" class="level-card-character">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Workout List Pages -->
+            <section id="beginner-workout-page" class="page">
+                <div class="header-with-back">
+                    <button class="back-btn" data-target-page="levels-screen">←</button>
+                    <h2 class="page-title">Beginner</h2>
+                </div>
+                <div class="workout-list">
+                    <div class="workout-item exercise-trigger" data-name="Jumping Jacks" data-video="video/jumping_jacks.mp4" data-duration="30s">
+                        <img src="exercise/jumping_jacks.png" alt="Jumping Jacks">
+                        <div class="workout-item-info">
+                            <h4>Jumping Jacks</h4>
+                            <p>00:30</p>
+                        </div>
+                    </div>
+                    <div class="workout-item exercise-trigger" data-name="Pushups" data-video="video/pushup.mp4" data-reps="10">
+                        <img src="exercise/pushup.png" alt="Pushups">
+                        <div class="workout-item-info">
+                            <h4>Pushups</h4>
+                            <p>x10</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="intermediate-workout-page" class="page">
+                <div class="header-with-back">
+                    <button class="back-btn" data-target-page="levels-screen">←</button>
+                    <h2 class="page-title">Intermediate</h2>
+                </div>
+                 <div class="workout-list">
+                    <div class="workout-item exercise-trigger" data-name="Push-ups" data-video="video/pushup.mp4" data-reps="20">
+                        <img src="exercise/pushup.png" alt="Push-ups">
+                        <div class="workout-item-info">
+                            <h4>Push-ups</h4>
+                            <p>x20</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="advanced-workout-page" class="page">
+                <div class="header-with-back">
+                    <button class="back-btn" data-target-page="levels-screen">←</button>
+                    <h2 class="page-title">Advanced</h2>
+                </div>
+                <div class="workout-list">
+                    <div class="workout-item exercise-trigger" data-name="Pull-ups" data-video="video/pullup.mp4" data-reps="15">
+                        <img src="exercise/pullup.png" alt="Pull-ups">
+                        <div class="workout-item-info">
+                            <h4>Pull-ups</h4>
+                            <p>x15</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Exercise Player Screen -->
+            <section id="exercise-player-screen" class="page">
+                <div class="video-container">
+                    <video id="exercise-video" loop autoplay playsinline muted></video>
+                    <div class="player-header">
+                        <button class="back-btn">←</button>
+                        <h3 id="exercise-name">Exercise Name</h3>
+                    </div>
+                </div>
+                <div class="player-controls">
+                    <div id="timer-display">00:00</div>
+                    <button id="done-btn">DONE</button>
+                </div>
+            </section>
+
+        </main>
+
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-target-page="focus-areas-screen">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                Home
+            </button>
+            <button class="nav-btn" data-target-page="plan-screen">
+                <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+                Plan
+            </button>
+            <button class="nav-btn" data-target-page="tracker-screen">
+                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14h-2V7h2v10zm-4 0H8V7h2v10zm8 0h-2v-4h2v4z"/></svg>
+                Tracker
+            </button>
+            <button class="nav-btn" data-target-page="levels-screen">
+                <svg viewBox="0 0 24 24"><path d="M16 11V3H8v6H2v12h20V11h-6zm-6-6h4v14h-4V5zm-6 8h4v6H4v-6zm16 6h-4v-6h4v6z"/></svg>
+                Levels
+            </button>
+            <button id="logout-btn" class="nav-btn hidden">
+                <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                Logout
+            </button>
+        </nav>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="hidden">
+        <div class="auth-container">
+            <h2 id="auth-title">Login</h2>
+            <form id="auth-form" class="auth-form">
+                <input type="email" id="auth-email" placeholder="Email" required>
+                <input type="password" id="auth-password" placeholder="Password" required>
+                <button type="submit" id="auth-submit-btn">Login</button>
+            </form>
+            <p id="auth-error"></p>
+            <p id="toggle-auth-mode">Don't have an account? <span id="auth-mode-link">Register</span></p>
+        </div>
+    </div>
+    
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>
